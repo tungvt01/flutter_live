@@ -20,7 +20,8 @@ class FlutterLive {
   /// Set the speaker phone on.
   // [enabled] Use Earpiece if false, or Loudspeaker if true.
   static Future<void> setSpeakerphoneOn(bool enabled) async {
-    await _channel.invokeMethod('setSpeakerphoneOn', <String, dynamic>{'enabled': enabled});
+    await _channel.invokeMethod(
+        'setSpeakerphoneOn', <String, dynamic>{'enabled': enabled});
   }
 
   /// RTMP demo stream by https://ossrs.net/
@@ -78,19 +79,29 @@ class RealtimePlayer {
   Future<void> play(String url) async {
     print('Start play live streaming $url');
 
-    await _player.setOption(fijkplayer.FijkOption.playerCategory, "mediacodec-all-videos", 1);
-    await _player.setOption(fijkplayer.FijkOption.hostCategory, "request-screen-on", 1);
-    await _player.setOption(fijkplayer.FijkOption.hostCategory, "request-audio-focus", 1);
+    await _player.setOption(
+        fijkplayer.FijkOption.playerCategory, "mediacodec-all-videos", 1);
+    await _player.setOption(
+        fijkplayer.FijkOption.hostCategory, "request-screen-on", 1);
+    await _player.setOption(
+        fijkplayer.FijkOption.hostCategory, "request-audio-focus", 1);
 
     // Live low-latency: https://www.jianshu.com/p/d6a5d8756eec
     // For all options, read https://github.com/Bilibili/ijkplayer/blob/master/ijkmedia/ijkplayer/ff_ffplay_options.h
-    await _player.setOption(fijkplayer.FijkOption.formatCategory, "probesize", 16 * 1024); // in bytes
-    await _player.setOption(fijkplayer.FijkOption.formatCategory, "analyzeduration", 100 * 1000); // in us
-    await _player.setOption(fijkplayer.FijkOption.playerCategory, "packet-buffering", 0); // 0, no buffer.
-    await _player.setOption(fijkplayer.FijkOption.playerCategory, "max_cached_duration", 800); // in ms
-    await _player.setOption(fijkplayer.FijkOption.playerCategory, "max-buffer-size", 32 * 1024); // in bytes
-    await _player.setOption(fijkplayer.FijkOption.playerCategory, "infbuf", 1); // 1 for realtime.
-    await _player.setOption(fijkplayer.FijkOption.playerCategory, "min-frames", 1); // in frames
+    await _player.setOption(fijkplayer.FijkOption.formatCategory, "probesize",
+        16 * 1024); // in bytes
+    await _player.setOption(fijkplayer.FijkOption.formatCategory,
+        "analyzeduration", 100 * 1000); // in us
+    await _player.setOption(fijkplayer.FijkOption.playerCategory,
+        "packet-buffering", 0); // 0, no buffer.
+    await _player.setOption(fijkplayer.FijkOption.playerCategory,
+        "max_cached_duration", 800); // in ms
+    await _player.setOption(fijkplayer.FijkOption.playerCategory,
+        "max-buffer-size", 32 * 1024); // in bytes
+    await _player.setOption(
+        fijkplayer.FijkOption.playerCategory, "infbuf", 1); // 1 for realtime.
+    await _player.setOption(
+        fijkplayer.FijkOption.playerCategory, "min-frames", 1); // in frames
 
     await _player.setDataSource(url, autoPlay: true).catchError((e) {
       print("setDataSource error: $e");
@@ -110,9 +121,10 @@ class RealtimePlayer {
 ///   streamUrl: "webrtc://d.ossrs.net:11985/live/livestream"
 class WebRTCUri {
   /// The api server url for WebRTC streaming.
-  String api;
+  String? api;
+
   /// The stream url to play or publish.
-  String streamUrl;
+  String? streamUrl;
 
   /// Parse the url to WebRTC uri.
   static WebRTCUri parse(String url) {
@@ -120,21 +132,21 @@ class WebRTCUri {
 
     var schema = 'https'; // For native, default to HTTPS
     if (uri.queryParameters.containsKey('schema')) {
-      schema = uri.queryParameters['schema'];
+      schema = uri.queryParameters['schema'] ?? schema;
     } else {
       schema = 'https';
     }
 
-    var port = (uri.port > 0)? uri.port : 443;
+    var port = (uri.port > 0) ? uri.port : 443;
     if (schema == 'https') {
-      port = (uri.port > 0)? uri.port : 443;
+      port = (uri.port > 0) ? uri.port : 443;
     } else if (schema == 'http') {
-      port = (uri.port > 0)? uri.port : 1985;
+      port = (uri.port > 0) ? uri.port : 1985;
     }
 
     var api = '/rtc/v1/play/';
     if (uri.queryParameters.containsKey('play')) {
-      api = uri.queryParameters['play'];
+      api = uri.queryParameters['play'] ?? api;
     }
 
     var apiParams = [];
@@ -159,8 +171,11 @@ class WebRTCUri {
 
 /// A WebRTC player, using [flutter_webrtc](https://pub.dev/packages/flutter_webrtc)
 class WebRTCPlayer {
-  webrtc.AddStreamCallback _onRemoteStream;
-  webrtc.RTCPeerConnection _pc;
+  webrtc.AddStreamCallback? _onRemoteStream;
+  webrtc.RTCPeerConnection pc;
+  WebRTCPlayer({
+    required this.pc,
+  });
 
   /// When got a remote stream.
   set onRemoteStream(webrtc.AddStreamCallback v) {
@@ -168,18 +183,15 @@ class WebRTCPlayer {
   }
 
   /// Initialize the player.
-  void initState() {
-  }
+  void initState() {}
 
   /// Start play a url.
   /// [url] must a path parsed by [WebRTCUri.parse] in https://github.com/rtcdn/rtcdn-draft
   Future<void> play(String url) async {
-    if (_pc != null) {
-      await _pc.close();
-    }
+    await pc.close();
 
     // Create the peer connection.
-    _pc = await webrtc.createPeerConnection({
+    pc = await webrtc.createPeerConnection({
       // AddTransceiver is only available with Unified Plan SdpSemantics
       'sdpSemantics': "unified-plan"
     });
@@ -187,46 +199,58 @@ class WebRTCPlayer {
     print('WebRTC: createPeerConnection done');
 
     // Setup the peer connection.
-    _pc.onAddStream = (webrtc.MediaStream stream) {
-      print('WebRTC: got stream ${stream.id}');
-      if (_onRemoteStream == null) {
-        print('Warning: Stream ${stream.id} is leak');
-        return;
-      }
-      _onRemoteStream(stream);
-    };
+    pc
+      ..onAddStream = (webrtc.MediaStream stream) {
+        print('WebRTC: got stream ${stream.id}');
+        if (_onRemoteStream == null) {
+          print('Warning: Stream ${stream.id} is leak');
+          return;
+        }
+        _onRemoteStream!(stream);
+      };
 
-    _pc.addTransceiver(
+    pc
+      ..addTransceiver(
         kind: webrtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
-        init: webrtc.RTCRtpTransceiverInit(direction: webrtc.TransceiverDirection.RecvOnly),
-    );
-    _pc.addTransceiver(
-      kind: webrtc.RTCRtpMediaType.RTCRtpMediaTypeVideo,
-      init: webrtc.RTCRtpTransceiverInit(direction: webrtc.TransceiverDirection.RecvOnly),
-    );
+        init: webrtc.RTCRtpTransceiverInit(
+            direction: webrtc.TransceiverDirection.RecvOnly),
+      );
+    pc
+      ..addTransceiver(
+        kind: webrtc.RTCRtpMediaType.RTCRtpMediaTypeVideo,
+        init: webrtc.RTCRtpTransceiverInit(
+            direction: webrtc.TransceiverDirection.RecvOnly),
+      );
     print('WebRTC: Setup PC done, A|V RecvOnly');
 
     // Start SDP handshake.
-    webrtc.RTCSessionDescription offer = await _pc.createOffer({
+
+    webrtc.RTCSessionDescription offer = await pc.createOffer({
       'mandatory': {'OfferToReceiveAudio': true, 'OfferToReceiveVideo': true},
     });
-    await _pc.setLocalDescription(offer);
-    print('WebRTC: createOffer, ${offer.type} is ${offer.sdp.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}');
-
-    webrtc.RTCSessionDescription answer = await _handshake(url, offer.sdp);
-    print('WebRTC: got ${answer.type} is ${answer.sdp.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}');
-
-    await _pc.setRemoteDescription(answer);
+    await pc.setLocalDescription(offer);
+    print(
+        'WebRTC: createOffer, ${offer.type} is ${offer.sdp?.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}');
+    if (offer.sdp == null) {
+      webrtc.RTCSessionDescription answer = await _handshake(url, offer.sdp!);
+      print(
+          'WebRTC: got ${answer.type} is ${answer.sdp!.replaceAll('\n', '\\n').replaceAll('\r', '\\r')}');
+      await pc.setRemoteDescription(answer);
+    } else {
+      print('WebRTC: ERROR got offer.sdp null ');
+    }
   }
 
   /// Handshake to exchange SDP, send offer and got answer.
-  Future<webrtc.RTCSessionDescription> _handshake(String url, String offer) async {
+  Future<webrtc.RTCSessionDescription> _handshake(
+      String url, String offer) async {
     // Setup the client for HTTP or HTTPS.
     HttpClient client = HttpClient();
 
     try {
       // Allow self-sign certificate, see https://api.flutter.dev/flutter/dart-io/HttpClient/badCertificateCallback.html
-      client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+      client.badCertificateCallback =
+          (X509Certificate cert, String host, int port) => true;
 
       // Parsing the WebRTC uri form url.
       WebRTCUri uri = WebRTCUri.parse(url);
@@ -238,21 +262,27 @@ class WebRTCPlayer {
       //    {api: "xxx", sdp: "offer", streamurl: "webrtc://d.ossrs.net:11985/live/livestream"}
       // Response:
       //    {code: 0, sdp: "answer", sessionid: "007r51l7:X2Lv"}
-      HttpClientRequest req = await client.postUrl(Uri.parse(uri.api));
-      req.headers.set('Content-Type', 'application/json');
-      req.add(utf8.encode(json.encode({'api': uri.api, 'streamurl': uri.streamUrl, 'sdp': offer})));
-      print('WebRTC request: ${uri.api} offer=${offer.length}B');
+      if (uri.api?.isEmpty ?? true) {
+        print('WebRTC postUrl error: api is null');
+        throw Exception('WebRTC postUrl error: api is null');
+      } else {
+        HttpClientRequest req = await client.postUrl(Uri.parse(uri.api!));
+        req.headers.set('Content-Type', 'application/json');
+        req.add(utf8.encode(json.encode(
+            {'api': uri.api, 'streamurl': uri.streamUrl, 'sdp': offer})));
+        print('WebRTC request: ${uri.api} offer=${offer.length}B');
 
-      HttpClientResponse res = await req.close();
-      String reply = await res.transform(utf8.decoder).join();
-      print('WebRTC reply: ${reply.length}B, ${res.statusCode}');
+        HttpClientResponse res = await req.close();
+        String reply = await res.transform(utf8.decoder).join();
+        print('WebRTC reply: ${reply.length}B, ${res.statusCode}');
 
-      Map<String, dynamic> o = json.decode(reply);
-      if (!o.containsKey('code') || !o.containsKey('sdp') || o['code'] != 0) {
-        return Future.error(reply);
+        Map<String, dynamic> o = json.decode(reply);
+        if (!o.containsKey('code') || !o.containsKey('sdp') || o['code'] != 0) {
+          return Future.error(reply);
+        }
+
+        return Future.value(webrtc.RTCSessionDescription(o['sdp'], 'answer'));
       }
-
-      return Future.value(webrtc.RTCSessionDescription(o['sdp'], 'answer'));
     } finally {
       client.close();
     }
@@ -260,9 +290,6 @@ class WebRTCPlayer {
 
   /// Dispose the player.
   void dispose() {
-    if (_pc != null) {
-      _pc.close();
-    }
+    pc.close();
   }
 }
-
